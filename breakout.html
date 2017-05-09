@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>ブロック崩し</title>
+    <script src="//cdn.jsdelivr.net/phaser/2.5.0/phaser.min.js"></script>
+  </head>
+  <body>
+<script>
+
+// constants
+var BALL_SPEED = 300;
+var STAGE_WIDTH = 600;
+var STAGE_HEIGHT = 800;
+var PLAYER_WIDTH = 160;
+var PLAYER_HEIGHT = 20;
+var PLAYER_Y = 600;
+var BALL_SIZE = 20;
+var ENEMY_Y= 400;
+var MARGIN_1 = 20;
+var MARGIN_2 = 10;
+var ENEMY_ROW_NUM = 8;
+var ENEMY_COL_NUM = 6;
+var SCORE_TEXT_HEIGHT = 32;
+
+// computed constants
+var ENEMY_WIDTH = (STAGE_WIDTH - 2 * MARGIN_1 - (ENEMY_COL_NUM - 1) * MARGIN_2) / ENEMY_COL_NUM;
+var ENEMY_HEIGHT = (ENEMY_Y - 2 * MARGIN_1 - (ENEMY_ROW_NUM - 1) * MARGIN_2) / ENEMY_ROW_NUM;
+
+// variables
+var score;
+
+// sprites
+var player;
+var ball;
+var enemies;
+
+// text
+var scoreText;
+
+// input
+var leftKey;
+var rightKey;
+
+
+var game = new Phaser.Game(STAGE_WIDTH, STAGE_HEIGHT, Phaser.AUTO, '', { preload: preload, create: create, update: update });
+
+function preload() {
+}
+
+function create() {
+  game.scale.fullScreenScaleMode = Phaser.ScaleManager.SHOW_ALL;
+  game.input.onTap.add(onTap, this);
+
+  game.physics.startSystem(Phaser.Physics.ARCADE);
+  game.stage.backgroundColor = '#124184';
+
+  leftKey = game.input.keyboard.addKey(Phaser.Keyboard.LEFT);
+  rightKey = game.input.keyboard.addKey(Phaser.Keyboard.RIGHT);
+
+  score = 0;
+
+  var playerGraphic= game.add.graphics(0, 0);
+  playerGraphic.beginFill(0xFF3300);
+  playerGraphic.drawRect(0, 0, PLAYER_WIDTH, PLAYER_HEIGHT);
+  playerGraphic.endFill();
+
+  player = game.add.sprite((STAGE_WIDTH - PLAYER_WIDTH) / 2.0, PLAYER_Y);
+  player.name = 'player';
+  player.addChild(playerGraphic);
+  game.physics.enable(player, Phaser.Physics.ARCADE);
+  player.body.width = PLAYER_WIDTH;
+  player.body.height = PLAYER_HEIGHT;
+  player.body.collideWorldBounds = true;
+  player.body.immovable = true;
+
+  var ballGraphic = game.add.graphics(0, 0);
+  ballGraphic.beginFill(0xFF3300);
+  ballGraphic.drawCircle(BALL_SIZE / 2.0, BALL_SIZE / 2.0, BALL_SIZE);
+  ballGraphic.endFill();
+
+  ball = game.add.sprite((STAGE_WIDTH - BALL_SIZE) / 2.0, PLAYER_Y - BALL_SIZE);
+  ball.addChild(ballGraphic);
+  game.physics.enable(ball, Phaser.Physics.ARCADE);
+  ball.body.width = BALL_SIZE;
+  ball.body.height = BALL_SIZE;
+  ball.body.velocity.x = 1;
+  ball.body.velocity.y = -1;
+  setRandomUpperVelocity(ball);
+  ball.body.collideWorldBounds = true;
+  ball.body.bounce.setTo(1, 1);
+
+  var style = { font: "bold 32px Arial", fill: "#fff", boundsAlignH: "center", boundsAlignV: "middle" };
+  scoreText = game.add.text(MARGIN_1, STAGE_HEIGHT - MARGIN_1 - SCORE_TEXT_HEIGHT, "", style);
+
+  createEnemies();
+}
+
+function update() {
+  if (leftKey.isDown) movePlayerToLeft();
+  if (rightKey.isDown) movePlayerToRight();
+
+  game.physics.arcade.collide(player, ball, collisionCallback);
+
+  for(var i = 0; i < ENEMY_ROW_NUM; i++) {
+    for(var j = 0; j < ENEMY_COL_NUM; j++) {
+      var enemy = enemies[i][j];
+      game.physics.arcade.collide(enemy, ball, killEnemy(enemy));
+    }
+  }
+
+  scoreText.text = "Score:" + score;
+}
+
+function isInLeftButton(pointer) {
+  return pointer.x < (STAGE_WIDTH / 2.0) && pointer.y > PLAYER_Y;
+}
+
+function isInRightButton(pointer) {
+  return pointer.x > (STAGE_WIDTH / 2.0) && pointer.y > PLAYER_Y;
+}
+
+function onTap(pointer, doubleTap) {
+  if(doubleTap) {
+    if (game.scale.isFullScreen) game.scale.stopFullScreen();
+    else game.scale.startFullScreen(false);
+  } else if (isInLeftButton(pointer)) {
+    player.body.velocity.x = -200;
+  } else if (isInRightButton(pointer)) {
+    player.body.velocity.x = 200;
+  }
+}
+
+function movePlayerToLeft() {
+  player.body.x += -5;
+}
+
+function movePlayerToRight() {
+  player.body.x += 5;
+}
+function collisionCallback() {
+  setRandomUpperVelocity(ball);
+}
+
+function sign(x) {
+  if(x >= 0) return 1;
+  else return -1;
+}
+
+function setRandomUpperVelocity(sprite) {
+  var angle = (1.0 + Math.random()) * Math.PI / 6.0;
+  sprite.body.velocity.x = sign(sprite.body.velocity.x) * BALL_SPEED * Math.cos(angle);
+  sprite.body.velocity.y = sign(sprite.body.velocity.y) * BALL_SPEED * Math.sin(angle);
+}
+
+function killEnemy(enemy) {
+  return function() {
+    enemy.destroy();
+    score += 10;
+  }
+}
+
+function createEnemies() {
+  enemies = [];
+  for(var i = 0; i < ENEMY_ROW_NUM; i++) {
+    enemies.push([]);
+    for(var j = 0; j < ENEMY_COL_NUM; j++) {
+      var enemyGraphic= game.add.graphics(0, 0);
+      enemyGraphic.beginFill(0xFF3300);
+      enemyGraphic.drawRect(0, 0, ENEMY_WIDTH, ENEMY_HEIGHT);
+      enemyGraphic.endFill();
+
+      enemyX = MARGIN_1 + (ENEMY_WIDTH + MARGIN_2) * j;
+      enemyY = MARGIN_1 + (ENEMY_HEIGHT + MARGIN_2) * i;
+
+      enemy = game.add.sprite(enemyX, enemyY);
+      enemy.name = 'enemy-' + i + '-' + j ;
+      enemy.addChild(enemyGraphic);
+      game.physics.enable(enemy, Phaser.Physics.ARCADE);
+      enemy.body.width = ENEMY_WIDTH;
+      enemy.body.height = ENEMY_HEIGHT;
+      enemy.body.immovable = true;
+      enemies[i].push(enemy);
+    }
+  }
+}
+
+</script>
+  </body>
+</html>
